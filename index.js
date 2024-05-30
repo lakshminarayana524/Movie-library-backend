@@ -1,60 +1,67 @@
-// server.js
-require('dotenv').config()
-const express = require('express')
-const mongoose = require('mongoose')
-const cors = require('cors')
-const bcrypt = require('bcrypt')
-const jwt = require('jsonwebtoken')
-const cookie = require('cookie-parser')
-const { User } = require('./Model/dbdetails')
+require('dotenv').config();
+const express = require('express');
+const mongoose = require('mongoose');
+const cors = require('cors');
+const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
+const cookie = require('cookie-parser');
+const { User } = require('./Model/dbdetails');
 const app = express();
 
 app.use(express.json());
 app.use(cors({
     origin: "http://localhost:3000",
-    methods: ["GET", "POST", "UPDATE", "DELETE"],
+    methods: ["GET", "POST", "PUT", "DELETE"], // Change "UPDATE" to "PUT"
     credentials: true,
 }));
 
 app.use(cookie());
 
-mongoose.connect(process.env.MONGO_URL);
+mongoose.connect(process.env.MONGO_URL)
+    .then(() => console.log('Connected to MongoDB'))
+    .catch(err => console.error('Failed to connect to MongoDB', err));
 
 const verifyuser = (req, res, next) => {
     const token = req.cookies.token;
     if (!token) {
-        console.log('No token found')
-        return res.json({ msg: "No token found" });
+        console.log("No token found")
+        return res.json({ msg: "No token found" }); // Return 401 Unauthorized
     } else {
         jwt.verify(token, process.env.SECRET_KEY, (err, decoded) => {
             if (err) {
                 console.log("Wrong Token");
-                return res.json({ msg: "Wrong Token" });
+                return res.json({ msg: "Wrong Token" }); // Return 401 Unauthorized
             }
 
             req.userId = decoded.userId;
-            console.log("Token Verified");
             next();
+            console.log("Token Verified");
         });
     }
 };
+
+function generateUniqueIdentifier() {
+    // Generate a random string or number
+    return Math.random().toString(36).substring(2) + Date.now().toString(36);
+  }
+  
 
 app.get('/', (req, res) => {
     res.json({ message: "Hello World" });
 });
 
-app.get('/verify', verifyuser, async (req, res) => {
-    try {
-        const user = await User.findById(req.userId);
-        if (!user) {
-            return res.json({ msg: "User not found" });
-        }
+
+
+
+app.get('/verify', verifyuser, (req, res) => {
+    console.log(req.userId);
+    if (req.userId) {
         return res.json({ msg: "Successfully Verified", userId: req.userId });
-    } catch (error) {
-        console.error("Error retrieving user details:", error);
-        return res.status(500).json({ msg: "Internal Server Error" });
+    } else {
+        return res.json({ msg: "No token found" });
     }
 });
+
 
 app.post('/login', (req, res) => {
     const { email, password } = req.body;
@@ -63,53 +70,58 @@ app.post('/login', (req, res) => {
             if (user) {
                 bcrypt.compare(password, user.password, (err, result) => {
                     if (result) {
-                        const token = jwt.sign({ userId: user._id }, process.env.SECRET_KEY, { expiresIn: '1h' });
+                        const uniqueIdentifier = generateUniqueIdentifier(); // You need to implement generateUniqueIdentifier function
+                        const token = jwt.sign({ userId: user._id, username: user.username, uniqueIdentifier }, process.env.SECRET_KEY, { expiresIn: '1h' });
+                        
                         res.cookie('token', token, { httpOnly: true }).json({ msg: "Login Successful", token });
                     } else {
-                        res.json({ msg: "Wrong Password" })
+                        res.json({ msg: "Wrong Password" });
                     }
-                })
+                });
             } else {
-                res.json({ msg: "User not found" })
-                console.log("User not found")
+                res.json({ msg: "User not found" });
+                console.log("User not found");
             }
-        })
+        });
 });
 
-app.post('/signup',(req,res)=>{
-    const {name,email,password}=req.body;
-    const lowercaseEmail=email.toLowerCase();
-    User.findOne({email:lowercaseEmail})
-        .then(exist=>{
-            if(exist){
-                return res.json({msg:"Email already exist"})
-            }else{
-                bcrypt.hash(password,10)
-                    .then(hash=>{
-                        User.create({name,email:lowercaseEmail,password:hash})
-                            .then((result)=>{
-                                res.json({msg:"Created Successfully"});
+app.post('/signup', (req, res) => {
+    const { name, email, password } = req.body;
+    const lowercaseEmail = email.toLowerCase();
+    User.findOne({ email: lowercaseEmail })
+        .then(exist => {
+            if (exist) {
+                return res.json({ msg: "Email already exist" });
+            } else {
+                bcrypt.hash(password, 10)
+                    .then(hash => {
+                        User.create({ name, email: lowercaseEmail, password: hash })
+                            .then((result) => {
+                                res.json({ msg: "Created Successfully" });
                                 console.log("Successfully Created User");
                             })
-                            .catch((err)=> {
-                                res.json({message:err.msg})
-                                console.log(err.msg);
-                            })
-                    })
+                            .catch((err) => {
+                                res.json({ message: err.message });
+                                console.log(err.message);
+                            });
+                    });
             }
         })
-        .catch(err=> {
-            res.json({msg:err.msg});
-            console.log(err.msg)
-        })
-    
-
-})
-
+        .catch(err => {
+            res.json({ msg: err.message });
+            console.log(err.message);
+        });
+});
 
 app.get('/user-details/:id', async (req, res) => {
     try {
         const userId = req.params.id;
+        
+        // Validate the userId to ensure it is a valid ObjectId
+        if (!mongoose.Types.ObjectId.isValid(userId)) {
+            return res.status(400).json({ msg: "Invalid user ID format" });
+        }
+
         const user = await User.findById(userId);
         if (!user) {
             return res.status(404).json({ msg: "User not found" });
@@ -124,5 +136,5 @@ app.get('/user-details/:id', async (req, res) => {
 const PORT = 3001 || process.env.PORT;
 
 app.listen(PORT, () => {
-    console.log("Server is running", PORT);
+    console.log("Server is running on port", PORT);
 });
