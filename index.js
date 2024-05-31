@@ -30,6 +30,7 @@ const verifyuser = (req, res, next) => {
         jwt.verify(token, process.env.SECRET_KEY, (err, decoded) => {
             if (err) {
                 console.log("Wrong Token");
+                res.clearCookie('token');
                 return res.json({ msg: "Wrong Token" }); // Return 401 Unauthorized
             }
 
