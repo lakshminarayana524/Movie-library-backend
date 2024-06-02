@@ -5,7 +5,7 @@ const cors = require('cors');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const cookie = require('cookie-parser');
-const { User } = require('./Model/dbdetails');
+const { User,Publiclib,Privatelib } = require('./Model/dbdetails');
 const app = express();
 
 app.use(express.json());
@@ -51,8 +51,13 @@ app.get('/', (req, res) => {
     res.json({ message: "Hello World" });
 });
 
+// Assuming you are using Express.js
 
-
+app.post('/logout', (req, res) => {
+    // Clear the authentication token from cookies
+    res.clearCookie('token');
+    res.json({ message: "Logged out successfully" });
+});
 
 app.get('/verify', verifyuser, (req, res) => {
     console.log(req.userId);
@@ -133,6 +138,169 @@ app.get('/user-details/:id', async (req, res) => {
         return res.status(500).json({ msg: "Internal Server Error" });
     }
 });
+
+app.post('/publiclib', async (req, res) => {
+    try {
+        const { playlistname, username, uid } = req.body;
+        console.log(playlistname, username, uid);
+
+        if (!playlistname) {
+            return res.json({ msg: "Playlist name is required" });
+        }
+
+        const existingPlaylist = await Publiclib.findOne({ playlistname: playlistname });
+        if (existingPlaylist) {
+            return res.json({ msg: "Playlist already exist" });
+        }
+
+        const newPlaylist = new Publiclib({ username, uid, playlistname, Movie: [] });
+        await newPlaylist.save();
+
+        res.json({ msg: "Successfully Playlist Created", playlist: newPlaylist });
+    } catch (e) {
+        console.log(e);
+        res.json({ msg: "Server error" });
+    }
+});
+
+
+app.post('/privatelib', async (req, res) => {
+    try {
+        const { playlistname, username, uid } = req.body;
+        console.log(playlistname, username, uid);
+
+        if (!playlistname) {
+            return res.json({ msg: "Playlist name is required" });
+        }
+
+        const existingPlaylist = await Privatelib.findOne({ playlistname: playlistname });
+        if (existingPlaylist) {
+            return res.json({ msg: "Playlist already exist" });
+        }
+
+        const newPlaylist = new Privatelib({ username, uid, playlistname, Movie: [] });
+        await newPlaylist.save();
+
+        res.json({ msg: "Successfully Playlist Created", playlist: newPlaylist });
+    } catch (e) {
+        console.log(e);
+        res.json({ msg: "Server error" });
+    }
+});
+
+
+app.get('/publiclibget', async (req, res) => {
+    try {
+        const playlists = await Publiclib.find();
+        // console.log(playlists)   
+        res.json({msg:"Successfully fetched",playlists});
+        
+    } catch (error) {
+        res.status(500).json({ message: 'Server error', error: error.message });
+    }
+});
+
+app.get('/privatelibget/:userId', async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const playlists = await Privatelib.find({uid: userId });
+    /* console.log(playlists);*/
+      res.json({ msg: "Successfully fetched", playlists });
+    } catch (error) {
+      res.status(500).json({ message: 'Server error', error: error.message });
+    }
+  });
+
+  app.get('/privatelibgets', async (req, res) => {
+    try {
+        const playlists = await Privatelib.find();
+        // console.log(playlists)   
+        res.json({msg:"Successfully fetched",playlists});
+        
+    } catch (error) {
+        res.status(500).json({ message: 'Server error', error: error.message });
+    }
+});
+  
+
+  app.post('/add-playlist', async (req, res) => {
+    try {
+        const { playlistname, movie, uid } = req.body;
+       
+            let playlist = await Publiclib.findOne({ playlistname, uid });
+            if (!playlist) {
+                playlist = new Publiclib({ username: req.body.username, uid, playlistname, Movie: [] });
+            }
+            playlist.Movie.push(movie);
+            await playlist.save();
+        
+        res.json({ success: true, msg: "Movie added to playlist successfully." });
+    } catch (e) {
+        console.log(e);
+        res.json({ msg: "Server Error" });
+    }
+});
+
+app.post('/add-private', async (req, res) => {
+    try {
+        const { movie, playlistname, uid } = req.body;
+        let playlist = await Privatelib.findOne({ playlistname, uid });
+        console.log(playlist);
+        if (!playlist) {
+            return res.json({ success: false, msg: "Private playlist not found. Please create a private playlist." });
+        }
+        playlist.Movie.push(movie);
+        await playlist.save();
+        res.json({ success: true, msg: "Movie added to private playlist successfully." });
+    } catch (e) {
+        console.log('Error adding to private playlist:', e.message);
+        res.status(500).json({ msg: "Server Error", error: e.message });
+    }
+});
+
+
+app.get('/publiclistgetall/:playlistname', async (req, res) => {
+    try {
+        const playlistname = req.params.playlistname;
+        const playlist = await Publiclib.findOne({ playlistname }); // Find the playlist by its name
+
+        if (!playlist) {
+            return res.status(404).json({ success: false, msg: "Playlist not found" });
+        }
+
+        // If the playlist is found, return all the movies in the playlist
+        return res.status(200).json({ success: true, playlist: playlist });
+    } catch (error) {
+        console.error('Error fetching public playlist details:', error);
+        return res.status(500).json({ success: false, msg: "Server Error" });
+    }
+});
+
+// Update the route to accept parameters
+app.get('/privategetall/:playlistname', async (req, res) => {
+    try {
+        
+        const { playlistname } = req.params;
+        // const{uid}=req.body;
+        // console.log(playlistname," ".uid)
+        const playlist = await Privatelib.findOne({ playlistname}); // Find the playlist by its name and user ID
+
+        if (!playlist) {
+            return res.status(404).json({ success: false, msg: "Playlist not found" });
+        }
+
+        // If the playlist is found, return all the movies in the playlist
+        return res.status(200).json({ success: true, playlist: playlist });
+    } catch (error) {
+        console.error('Error fetching public playlist details:', error);
+        return res.status(500).json({ success: false, msg: "Server Error" });
+    }
+});
+
+
+
+
+
 
 const PORT = 3001 || process.env.PORT;
 
