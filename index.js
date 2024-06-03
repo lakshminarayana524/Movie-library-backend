@@ -60,8 +60,9 @@ app.get('/', (req, res) => {
 app.post('/logout', (req, res) => {
     // Clear the authentication token from cookies
     res.clearCookie('token');
-    // Redirect the user to the home page or any other desired page
-    res.redirect('/');
+    
+
+    res.json({ message: 'Logout successful' });
 });
 
 app.get('/verify', verifyuser, (req, res) => {
@@ -84,7 +85,8 @@ app.post('/login', (req, res) => {
                         const uniqueIdentifier = generateUniqueIdentifier(); // You need to implement generateUniqueIdentifier function
                         const token = jwt.sign({ userId: user._id, username: user.username, uniqueIdentifier }, process.env.SECRET_KEY, { expiresIn: '1h' });
                         
-                      res.cookie('token', token, { httpOnly: true, secure: true, sameSite: 'None' }).json({ msg: "Login Successful", token });
+                        res.cookie('token', token, { httpOnly: true, secure: true, sameSite: 'None' })
+                           .json({ msg: "Login Successful", token, userId: user._id }); // Include userId in response
 
                     } else {
                         res.json({ msg: "Wrong Password" });
@@ -96,6 +98,7 @@ app.post('/login', (req, res) => {
             }
         });
 });
+
 
 app.post('/signup', (req, res) => {
     const { name, email, password } = req.body;
