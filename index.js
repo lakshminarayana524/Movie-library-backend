@@ -4,20 +4,23 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-const cookie = require('cookie-parser');
+const cookie = require('cookie-parser')
+const bodyparser = require("body-parser")
 const { User,Publiclib,Privatelib } = require('./Model/dbdetails');
 const app = express();
 
-app.use(express.json());
 app.use(cors({
     origin: "https://movie-library-gln.vercel.app",
     // origin: "http://localhost:3000",
-    methods: ["GET", "POST", "PUT", "DELETE"], // Change "UPDATE" to "PUT"
+    methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true,
 }));
 
-app.use(cookie());
 
+
+
+app.use(bodyparser.json())
+app.use(cookie());
 mongoose.connect(process.env.MONGO_URL)
     .then(() => console.log('Connected to MongoDB'))
     .catch(err => console.error('Failed to connect to MongoDB', err));
@@ -25,7 +28,7 @@ mongoose.connect(process.env.MONGO_URL)
 const verifyuser = (req, res, next) => {
     const token = req.cookies.token;
     if (!token) {
-        console.log("No token found")
+        // console.log("No token found")
         return res.json({ msg: "No token found" }); // Return 401 Unauthorized
     } else {
         jwt.verify(token, process.env.SECRET_KEY, (err, decoded) => {
@@ -36,8 +39,8 @@ const verifyuser = (req, res, next) => {
             }
 
             req.userId = decoded.userId;
-            next();
             console.log("Token Verified");
+            next();
         });
     }
 };
@@ -81,7 +84,8 @@ app.post('/login', (req, res) => {
                         const uniqueIdentifier = generateUniqueIdentifier(); // You need to implement generateUniqueIdentifier function
                         const token = jwt.sign({ userId: user._id, username: user.username, uniqueIdentifier }, process.env.SECRET_KEY, { expiresIn: '1h' });
                         
-                        res.cookie('token', token, { httpOnly: true }).json({ msg: "Login Successful", token });
+                      res.cookie('token', token, { httpOnly: true, secure: true, sameSite: 'None' }).json({ msg: "Login Successful", token });
+
                     } else {
                         res.json({ msg: "Wrong Password" });
                     }
