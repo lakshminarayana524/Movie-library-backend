@@ -11,6 +11,7 @@ const app = express();
 app.use(express.json());
 app.use(cors({
     origin: "https://movie-library-gln.vercel.app",
+    // origin: "http://localhost:3000",
     methods: ["GET", "POST", "PUT", "DELETE"], // Change "UPDATE" to "PUT"
     credentials: true,
 }));
@@ -56,7 +57,8 @@ app.get('/', (req, res) => {
 app.post('/logout', (req, res) => {
     // Clear the authentication token from cookies
     res.clearCookie('token');
-    res.json({ message: "Logged out successfully" });
+    // Redirect the user to the home page or any other desired page
+    res.redirect('/');
 });
 
 app.get('/verify', verifyuser, (req, res) => {
@@ -298,11 +300,31 @@ app.get('/privategetall/:playlistname', async (req, res) => {
 });
 
 
+app.get('/findtoken', (req, res) => {
+    const token = req.cookies.token;
+
+    if (!token) {
+        return res.json({ tokenFound: false });
+    } else {
+        // If a token is found, you can optionally verify it here
+        jwt.verify(token, process.env.SECRET_KEY, (err, decoded) => {
+            if (err) {
+                // Token verification failed
+                console.error("Token verification failed:", err);
+                return res.json({ tokenFound: false });
+            } else {
+                // Token verification successful
+                console.log("Token verification successful");
+                return res.json({ tokenFound: true });
+            }
+        });
+    }
+});
 
 
 
 
-const PORT = process.env.PORT|| 3001  ;
+const PORT =   process.env.PORT||3001;
 
 app.listen(PORT, () => {
     console.log("Server is running on port", PORT);
